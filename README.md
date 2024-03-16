@@ -7,3 +7,8 @@ Just Install by
 helm install your-application ./ -n your-namespace --set logstash.enabled=true
 ```
 
+If you have elasticseach on kubernetes, Get CA Certification and write in values.yaml (logstash.esCert.caData)
+```
+kubectl get secret elasticsearch-master-certs -n your-namespace -o jsonpath="{.data.ca\.crt}" | base64 --decode
+```
+
