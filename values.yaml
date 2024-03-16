@@ -44,13 +44,13 @@ service:
   port: 80
 
 ingress:
-  enabled: true
-  className: "nginx"
+  enabled: false
+  className: ""
   annotations: {}
     # kubernetes.io/ingress.class: nginx
     # kubernetes.io/tls-acme: "true"
   hosts:
-    - host: test.local
+    - host: example.local
       paths:
         - path: /
           pathType: ImplementationSpecific
@@ -75,28 +75,14 @@ logstash:
   # ...
   # }
   esCert:
-    enabled: false
+    enabled: true
     # get elasticsearch self-signed CA, type below (assuming secret name is elasticsearch-master-certs and default namespace)
     # kubectl get secret elasticsearch-master-certs -o jsonpath="{.data.ca\.crt}" | base64 --decode
     secretName: "elasticsearch-ca-secret"
     caData: |
       -----BEGIN CERTIFICATE-----
       MIIDITCCAgmgAwIBAgIQffwZqYaHBCJggklZW9mnbDANBgkqhkiG9w0BAQsFADAb
-      MRkwFwYDVQQDExBlbGFzdGljc2VhcmNoLWNhMB4XDTI0MDMxNTE1MDQ0MFoXDTI1
-      MDMxNTE1MDQ0MFowGzEZMBcGA1UEAxMQZWxhc3RpY3NlYXJjaC1jYTCCASIwDQYJ
-      KoZIhvcNAQEBBQADggEPADCCAQoCggEBAMhvCLJBbTL7zrdU/mZQbMQXUGsNVCZ1
-      MmzA5ZN+Y/6OPogIiCQewxKIL7FkxuCoq00qUBL8TDNWzgvZcyOFrIkJq4ceMcLV
-      dif2LCJOeW2TCsAQOKvB0ZiDUyTzaIhPfx3kTxGQAjYo/tkR7i4qS8k8JV2foPH3
-      iqSFGSuDtCdw2AW9GJUVcVwpOy4izdpnM3a7ep39y50qOvismRzvnLjRwX0QJ+xu
-      kOaw/Sphn/p4S3ZQgVsHlv4yDes+EWo7OjpDMmnuMBihPDVV3JY+xfstUaEk7dV9
-      8N8d+v5bnjfX/PnTCYwYnFL9q1CGazcsEkCyscmcT02IcDdkcgb9s18CAwEAAaNh
-      MF8wDgYDVR0PAQH/BAQDAgKkMB0GA1UdJQQWMBQGCCsGAQUFBwMBBggrBgEFBQcD
-      AjAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBRRwTe78irABRppKHkSqxKIkT/l
-      RzANBgkqhkiG9w0BAQsFAAOCAQEAUwv13VIeybetavsiHWkD2h2iRxp+KIpiD5Ua
-      LR3EuURfDOII4z/8hnYD8QEcEI0d8bSj3k9GVDb5xcj3cS54WyHFm4XfB9kg/PEA
-      4phWspgvAZ/0JCpgmMmZHaDzlVPQBohtOpvTF8Mov+cX6Bex9+sX4iJMQbtSot8u
-      g4dp/ukd+3X8IERwGhIH/8EHnpDKz9fnEVSKedfdiUJMkzckAyNcFxKsh/JyeG1x
-      SIwLbOIJc1YAcKalkrrqITCHNB69qMOAr6FOmRsbzD0Efk9Q6zrU+ABWv2kBpeKy
+      ...
       zWR9av8rkT6zu7orKGLxUFvZKPuYwgEsAkv/L9TtRTJgX6qGZQ==
       -----END CERTIFICATE-----
 
@@ -121,9 +107,29 @@ logstash:
           start_position => "beginning"
         }
       }
+      filter {
+        grok {
+          match => { "message" => "%{IP:client} - %{DATA:ident} \[%{HTTPDATE:timestamp}\] \"%{WORD:method} %{URIPATHPARAM:request} HTTP/%{NUMBER:httpversion}\" %{NUMBER:response} (?:%{NUMBER:bytes}|-) \"%{DATA:referrer}\" \"%{DATA:user_agent}\" \"%{DATA:forwarded_for}\"" }
+        }
+        date {
+          match => [ "timestamp", "dd/MMM/YYYY:HH:mm:ss Z" ]
+          target => "@timestamp"
+        }
+        if "kube-probe" in [user_agent] {
+          drop { }
+        }
+      }
       output {
         stdout {
           codec => rubydebug
+        }
+        elasticsearch {
+          hosts => ["https://elasticsearch-master.elastic.svc:9200"]
+          user => "elastic"
+          password => "your-password"
+          index => "nginx-test-log"
+          ssl => true
+          ssl_certificate_authorities => "/usr/share/logstash/config/certs/ca.crt"
         }
       }
 
