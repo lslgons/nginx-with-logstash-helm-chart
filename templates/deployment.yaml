@@ -1,0 +1,120 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "test-web.fullname" . }}
+  labels:
+    {{- include "test-web.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "test-web.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "test-web.labels" . | nindent 8 }}
+	{{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "test-web.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+          - mountPath: /var/log/nginx
+            name: logs-volume
+          {{- with .Values.volumeMounts }}
+            {{- toYaml . | nindent 10 }}
+          {{- end }}
+        {{- if .Values.logstash.enabled }}
+        - name: logstash-logging
+          image: "{{ .Values.logstash.image }}:{{ .Values.logstash.tag }}"
+          resources:
+            {{- toYaml .Values.logstash.resources | nindent 12 }}
+          volumeMounts:
+          - mountPath: /opt/logs
+            name: logs-volume
+          - name: logstash-config
+            mountPath: /usr/share/logstash/config/logstash.yml
+            subPath: logstash.yml
+          - name: logstash-config
+            mountPath: /usr/share/logstash/config/pipelines.yml
+            subPath: pipelines.yml
+          - name: logstash-pipeline
+            mountPath: /usr/share/logstash/pipeline
+          {{- if .Values.logstash.esCert.enabled }}
+          - name: elasticsearch-ca
+            mountPath: /usr/share/logstash/config/certs
+            readOnly: true
+          {{- end }}
+          {{- with .Values.logstash.volumeMounts }}
+            {{- toYaml . | nindent 10 }}
+          {{- end }}
+        {{- end }}
+      volumes:
+      - name: logs-volume
+        emptyDir: {}
+      - name: logstash-config
+        configMap:
+          name: logstash-setting
+          items:
+          - key: logstash.yml
+            path: logstash.yml
+          - key: pipelines.yml
+            path: pipelines.yml
+      - name: logstash-pipeline
+        configMap:
+          name: logstash-pipeline
+      {{- if .Values.logstash.esCert.enabled }}
+      - name: elasticsearch-ca
+        secret:
+          secretName: {{ .Values.logstash.esCert.secretName }}
+          items:
+          - key: ca.crt
+            path: ca.crt
+      {{- end }}
+      {{- with .Values.volumes }}
+        {{- toYaml . | nindent 6 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

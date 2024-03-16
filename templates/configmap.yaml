@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logstash-setting
+data:
+  logstash.yml: |
+{{ .Values.logstash.setting | indent 4 }}
+  pipelines.yml: |
+{{ .Values.logstash.pipelines | indent 4 }}
