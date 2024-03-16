@@ -8,10 +8,11 @@ Just Install by
 helm install your-application ./ -n your-namespace --set logstash.enabled=true
 ```
 
+## Elasticsearch Self-signed CA
 If you have elasticseach on kubernetes, Get CA Certification and write in values.yaml (logstash.esCert.caData)
 ```
 kubectl get secret elasticsearch-master-certs -n your-namespace -o jsonpath="{.data.ca\.crt}" | base64 --decode
 ```
 
 ## Logs Path
-Nginx Logs in Logstash container's on "/opt/logs"
+Nginx Logs in Logstash container's is on "/opt/logs", There is no pipeline (just default pipelines)
