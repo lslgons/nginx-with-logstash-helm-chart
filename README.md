@@ -1,5 +1,6 @@
 # A Helm chart for nginx with Logstash sidecar
 ---
+
 For Create Nginx web service on kubernetes, it enables logstash to transfer nginx web log data to elasticsearch.
 
 Just Install by
@@ -12,3 +13,5 @@ If you have elasticseach on kubernetes, Get CA Certification and write in values
 kubectl get secret elasticsearch-master-certs -n your-namespace -o jsonpath="{.data.ca\.crt}" | base64 --decode
 ```
 
+## Logs Path
+Nginx Logs in Logstash container's on "/opt/logs"
